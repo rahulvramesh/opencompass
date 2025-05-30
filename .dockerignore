@@ -1,0 +1,96 @@
+# Git files
+.git
+.gitignore
+.gitpod.yml
+
+# Python cache
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test and coverage files
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Output directories
+outputs/
+results/
+logs/
+*.log
+
+# Model weights and large files
+*.pth
+*.pt
+*.bin
+*.h5
+*.ckpt
+*.safetensors
+checkpoints/
+models/
+weights/
+
+# Data directories (uncomment if you want to exclude data)
+# data/
+# datasets/
+
+# Cache directories
+cache/
+.cache/
+wandb/
+.transformers/
+
+# Documentation build files
+docs/_build/
+docs/.build/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+Thumbs.db
+
+# Custom ignore patterns
+*.bak
+*.orig
+.env
+.env.*

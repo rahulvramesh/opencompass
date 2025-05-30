@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  opencompass:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: opencompass:latest
+    container_name: opencompass
+    volumes:
+      # Mount data directory
+      - ./data:/workspace/data
+      # Mount outputs directory
+      - ./outputs:/workspace/outputs
+      # Mount cache directory for model downloads
+      - ./cache:/workspace/cache
+      # Mount configs for easy modification
+      - ./configs:/workspace/configs:ro
+      # For development: mount the entire codebase
+      # - .:/workspace
+    environment:
+      # Hugging Face settings
+      - HF_HOME=/workspace/cache
+      - TRANSFORMERS_CACHE=/workspace/cache
+      - TORCH_HOME=/workspace/cache
+      # Disable tokenizers parallelism warning
+      - TOKENIZERS_PARALLELISM=false
+      # API Keys (set these in .env file)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY:-}
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
+      # GPU settings (uncomment if using GPU)
+      # - NVIDIA_VISIBLE_DEVICES=all
+      # - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    # For GPU support, uncomment the following
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    stdin_open: true
+    tty: true
+    command: bash
+
+  # Development container with all dependencies
+  opencompass-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        - INSTALL_DEV=true
+    image: opencompass:dev
+    container_name: opencompass-dev
+    volumes:
+      # Mount entire codebase for development
+      - .:/workspace
+      # Separate cache for dev environment
+      - ./cache-dev:/workspace/cache
+    environment:
+      - HF_HOME=/workspace/cache
+      - TRANSFORMERS_CACHE=/workspace/cache
+      - TORCH_HOME=/workspace/cache
+      - TOKENIZERS_PARALLELISM=false
+      # Development settings
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    command: bash
+    # ports:
+    #   - "8000:8000"  # For potential API services
+
+  # Jupyter notebook service for interactive development
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: opencompass:jupyter
+    container_name: opencompass-jupyter
+    volumes:
+      - .:/workspace
+      - ./notebooks:/workspace/notebooks
+    environment:
+      - HF_HOME=/workspace/cache
+      - TRANSFORMERS_CACHE=/workspace/cache
+      - TORCH_HOME=/workspace/cache
+    ports:
+      - "8888:8888"
+    command: >
+      bash -c "pip install jupyter notebook &&
+               jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser 
+               --allow-root --NotebookApp.token='' --NotebookApp.password=''"
+
+# Networks
+networks:
+  default:
+    name: opencompass-network
+
+# Volumes for persistent data
+volumes:
+  cache:
+    driver: local
+  data:
+    driver: local
+  outputs:
+    driver: local

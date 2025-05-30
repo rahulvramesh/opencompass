@@ -1,0 +1,88 @@
+# OpenCompass Docker Makefile
+# Usage: make -f Makefile.docker [target]
+
+.PHONY: help build build-dev run shell jupyter clean logs up down
+
+# Docker image names
+IMAGE_NAME = opencompass
+IMAGE_TAG = latest
+DEV_TAG = dev
+
+help:
+	@echo "OpenCompass Docker Commands:"
+	@echo "  make build       - Build the Docker image"
+	@echo "  make build-dev   - Build the development Docker image"
+	@echo "  make run         - Run OpenCompass with example config"
+	@echo "  make shell       - Start interactive shell"
+	@echo "  make jupyter     - Start Jupyter notebook"
+	@echo "  make clean       - Remove Docker images and containers"
+	@echo "  make logs        - Show container logs"
+	@echo "  make up          - Start services with docker-compose"
+	@echo "  make down        - Stop services with docker-compose"
+
+build:
+	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
+
+build-dev:
+	docker build -t $(IMAGE_NAME):$(DEV_TAG) --target dev .
+
+run:
+	docker run --rm \
+		-v $(PWD)/data:/workspace/data \
+		-v $(PWD)/outputs:/workspace/outputs \
+		-v $(PWD)/cache:/workspace/cache \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		opencompass examples/eval_demo.py
+
+shell:
+	docker run -it --rm \
+		-v $(PWD):/workspace \
+		-v $(PWD)/cache:/workspace/cache \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		bash
+
+jupyter:
+	docker run -d --name opencompass-jupyter \
+		-p 8888:8888 \
+		-v $(PWD):/workspace \
+		-v $(PWD)/cache:/workspace/cache \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		jupyter
+	@echo "Jupyter is running at http://localhost:8888"
+	@echo "Default password: opencompass"
+
+clean:
+	docker stop opencompass-jupyter 2>/dev/null || true
+	docker rm opencompass-jupyter 2>/dev/null || true
+	docker rmi $(IMAGE_NAME):$(IMAGE_TAG) 2>/dev/null || true
+	docker rmi $(IMAGE_NAME):$(DEV_TAG) 2>/dev/null || true
+
+logs:
+	docker-compose logs -f
+
+up:
+	docker-compose up -d
+
+down:
+	docker-compose down
+
+# Advanced targets
+build-gpu:
+	docker build -t $(IMAGE_NAME):gpu \
+		--build-arg CUDA_VERSION=11.8 .
+
+run-gpu:
+	docker run --gpus all --rm \
+		-v $(PWD)/data:/workspace/data \
+		-v $(PWD)/outputs:/workspace/outputs \
+		-v $(PWD)/cache:/workspace/cache \
+		$(IMAGE_NAME):gpu \
+		opencompass examples/eval_demo.py
+
+test:
+	docker run --rm $(IMAGE_NAME):$(IMAGE_TAG) \
+		python -c "import opencompass; print('OpenCompass imported successfully')"
+
+push:
+	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
+	docker push $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
