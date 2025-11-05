@@ -110,6 +110,9 @@ class CascadeEvaluator(BaseEvaluator):
         if 'prediction' in llm_detail:
             response = llm_detail['prediction'].strip().upper()
             return response == 'A' or response.startswith('CORRECT')
+        elif 'llm_judge' in llm_detail:
+            response = llm_detail['llm_judge'].strip().upper()
+            return response == 'A' or response.startswith('CORRECT')
         elif 'correct' in llm_detail:
             return llm_detail['correct']
         elif 'score' in llm_detail:
@@ -147,9 +150,9 @@ class CascadeEvaluator(BaseEvaluator):
             else:
                 test_item = None
             # Apply prediction postprocessing for each sample
-            [pred] = self.rule_evaluator.pred_postprocess([pred])
+            [pred_rule] = self.rule_evaluator.pred_postprocess([pred])
 
-            result = self.sample_score(pred, ref, test_item)
+            result = self.sample_score(pred_rule, ref, test_item)
             result['evaluation_method'] = 'rule'
             details.append({'rule_evaluation': result})
 
@@ -338,4 +341,21 @@ class CascadeEvaluator(BaseEvaluator):
                 'details': details,
             }
 
-            return result
+        else:
+            result = {
+                'accuracy': initial_accuracy,
+                'cascade_stats': {
+                    'total_samples': len(predictions),
+                    'rule_correct': initial_correct,
+                    'rule_accuracy': initial_accuracy,
+                    'llm_evaluated': 0,
+                    'llm_correct': 0,
+                    'llm_accuracy': 0.0,
+                    'final_correct': initial_correct,
+                    'final_accuracy': initial_accuracy,
+                    'parallel_mode': self.parallel,
+                },
+                'details': details,
+            }
+
+        return result
