@@ -6,7 +6,7 @@ ARG VERSION
 ARG REVISION
 
 # Stage 1: Base image with system dependencies
-FROM python:${PYTHON_VERSION}-slim as base
+FROM python:${PYTHON_VERSION}-slim AS base
 
 # Labels
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     libgomp1 \
     libglu1-mesa \
-    libgl1-mesa-glx \
+    libgl1 \
     libglew-dev \
     libosmesa6-dev \
     libglu1-mesa-dev \
@@ -38,10 +38,10 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     vim \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* 
 
 # Stage 2: Builder stage for dependencies
-FROM base as builder
+FROM base AS builder
 
 WORKDIR /tmp
 
@@ -63,7 +63,7 @@ RUN pip install --no-cache-dir -r requirements/extra.txt || true
 RUN pip install --no-cache-dir latex2sympy2-extended
 
 # Stage 3: Final runtime image
-FROM base as runtime
+FROM base AS runtime
 
 # Set working directory
 WORKDIR /workspace
