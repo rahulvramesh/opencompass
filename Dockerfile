@@ -58,6 +58,10 @@ RUN pip install --no-cache-dir -r requirements/runtime.txt
 # Install API requirements (optional)
 RUN pip install --no-cache-dir -r requirements/api.txt || true
 
+RUN pip install --no-cache-dir -r requirements/extra.txt || true
+
+RUN pip install --no-cache-dir latex2sympy2-extended
+
 # Stage 3: Final runtime image
 FROM base as runtime
 
@@ -117,6 +121,6 @@ CMD ["help"]
 # # RUN pip install --no-cache-dir -r requirements/vllm.txt
 # 
 # # Install extra evaluation tools
-# RUN pip install --no-cache-dir -r requirements/extra.txt || true
+
 # 
 # CMD ["bash"]
