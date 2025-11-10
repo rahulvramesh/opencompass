@@ -7,7 +7,7 @@ from opencompass.datasets.livemathbench import LiveMathBenchDataset, LiveMathBen
 
 livemathbench_dataset = dict(
     type=LiveMathBenchDataset,
-    path='',
+    path='opencompass/LiveMathBench202412',
     k=16,
     n=48,
     dataset_splits=['CNMO', 'CCEE', 'AMC', 'WLPMC'],
