@@ -76,6 +76,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . /workspace/
 
 # Install OpenCompass in development mode
+RUN pip install math_verify latex2sympy2_extended
 RUN pip install -e .
 
 # Download NLTK data
