@@ -38,7 +38,7 @@ class APPSDataset(BaseDataset):
 
     @staticmethod
     def load(path: str, num_repeats: int = 1):
-        dataset = load_dataset(path)
+        dataset = load_dataset(path, trust_remote_code=True)
         new_dataset = DatasetDict()
         # add new column "starter" in the prompt
         for split in dataset.keys():

@@ -9,8 +9,6 @@ dingo-python==1.5.0
 faiss_gpu==1.7.2
 # Humaneval, Humaneval X
 -e git+https://github.com/open-compass/human-eval.git#egg=human-eval
-# IFEval
-langdetect
 # Lawbench, leval
 ltp
 # Math

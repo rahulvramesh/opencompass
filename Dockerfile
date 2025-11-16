@@ -80,7 +80,7 @@ RUN pip install math_verify latex2sympy2_extended
 RUN pip install -e .
 
 # Download NLTK data
-RUN python -c "import nltk; nltk.download('punkt')"
+RUN python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
 
 # Create directories for data and outputs
 RUN mkdir -p /workspace/data /workspace/outputs /workspace/cache

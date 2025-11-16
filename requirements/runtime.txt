@@ -15,6 +15,7 @@ importlib-metadata
 jieba
 json5
 jsonlines
+langdetect
 mmengine-lite
 nltk>=3.7
 numpy>=1.23.4,<2.0.0
