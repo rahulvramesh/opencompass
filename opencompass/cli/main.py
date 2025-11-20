@@ -351,7 +351,22 @@ def main():
             for task in tasks:
                 cfg.attack.dataset = task.datasets[0][0].abbr
                 task.attack = cfg.attack
+
+        # Track inference phase time
+        import time
+        infer_start_time = time.time()
         runner(tasks)
+        infer_end_time = time.time()
+        infer_elapsed = infer_end_time - infer_start_time
+
+        # Log inference phase completion time
+        if infer_elapsed < 60:
+            time_str = f"{infer_elapsed:.1f}s"
+        else:
+            minutes = int(infer_elapsed / 60)
+            seconds = int(infer_elapsed % 60)
+            time_str = f"{minutes}m {seconds}s"
+        logger.info(f'Inference phase complete: {time_str}')
 
     # evaluate
     if args.mode in ['all', 'eval']:
@@ -391,6 +406,10 @@ def main():
             return
         runner = RUNNERS.build(cfg.eval.runner)
 
+        # Track evaluation phase time
+        import time
+        eval_start_time = time.time()
+
         # For meta-review-judge in subjective evaluation
         if isinstance(tasks, list) and len(tasks) != 0 and isinstance(
                 tasks[0], list):
@@ -398,6 +417,29 @@ def main():
                 runner(task_part)
         else:
             runner(tasks)
+
+        eval_end_time = time.time()
+        eval_elapsed = eval_end_time - eval_start_time
+
+        # Log evaluation phase completion time
+        if eval_elapsed < 60:
+            time_str = f"{eval_elapsed:.1f}s"
+        else:
+            minutes = int(eval_elapsed / 60)
+            seconds = int(eval_elapsed % 60)
+            time_str = f"{minutes}m {seconds}s"
+        logger.info(f'Evaluation phase complete: {time_str}')
+
+        # If running full evaluation (mode='all'), log total time
+        if args.mode == 'all' and 'infer_start_time' in locals():
+            total_elapsed = eval_end_time - infer_start_time
+            if total_elapsed < 60:
+                total_time_str = f"{total_elapsed:.1f}s"
+            else:
+                total_minutes = int(total_elapsed / 60)
+                total_seconds = int(total_elapsed % 60)
+                total_time_str = f"{total_minutes}m {total_seconds}s"
+            logger.info(f'Total evaluation time (inference + eval): {total_time_str}')
 
     # save to station
     if args.station_path is not None or cfg.get('station_path') is not None:

@@ -76,6 +76,52 @@ class LocalRunner(BaseRunner):
         Returns:
             list[tuple[str, int]]: A list of (task name, exit code).
         """
+        # Pre-calculate total batches for ETA estimation
+        if len(tasks) > 0:
+            from opencompass.utils.logging import get_logger
+            logger = get_logger(__name__)
+
+            total_batches = 0
+            work_dir = None
+
+            # Calculate total batches across all tasks
+            for task_cfg in tasks:
+                # Build task to access configs
+                task_obj = TASKS.build(dict(cfg=task_cfg, type=self.task_cfg['type']))
+                if work_dir is None:
+                    work_dir = task_obj.work_dir
+
+                # Iterate through model-dataset pairs
+                for model_cfg, dataset_cfgs in zip(task_obj.model_cfgs, task_obj.dataset_cfgs):
+                    batch_size = model_cfg.get('batch_size', 1)
+
+                    for dataset_cfg in dataset_cfgs:
+                        # Build dataset to count samples
+                        from opencompass.utils import build_dataset_from_cfg
+                        dataset = build_dataset_from_cfg(dataset_cfg)
+                        num_samples = len(dataset.test)
+                        # Ceiling division to get number of batches
+                        num_batches = (num_samples + batch_size - 1) // batch_size
+                        total_batches += num_batches
+
+            # Save metadata for inferencer to use
+            if work_dir and total_batches > 0:
+                import json
+                mmengine.mkdir_or_exist(osp.join(work_dir, 'tmp'))
+                eta_metadata_file = osp.join(work_dir, 'tmp', 'eta_metadata.json')
+
+                with open(eta_metadata_file, 'w') as f:
+                    json.dump({
+                        'total_batches': total_batches,
+                        'total_tasks': len(tasks),
+                        'calibration_complete': False
+                    }, f)
+
+                logger.info(f'📋 Starting evaluation with {len(tasks)} task(s), '
+                           f'{total_batches} total batches.')
+            else:
+                logger.info(f'📋 Starting evaluation with {len(tasks)} task(s). '
+                           'Each task will show its estimated time after calibration.')
 
         status = []
         import torch
@@ -175,11 +221,16 @@ class LocalRunner(BaseRunner):
                     lock.release()
                     time.sleep(1)
 
+                # Add timestamp and task progress to log messages
+                from datetime import datetime
+                timestamp = datetime.now().strftime('%H:%M:%S')
+                task_progress = f'[{timestamp}] Task {index + 1}/{len(tasks)}'
+
                 if num_gpus > 0:
-                    tqdm.write(f'launch {task.name} on GPU ' +
+                    tqdm.write(f'{task_progress}: Launching {task.name} on GPU ' +
                                ','.join(map(str, gpu_ids)))
                 else:
-                    tqdm.write(f'launch {task.name} on CPU ')
+                    tqdm.write(f'{task_progress}: Launching {task.name} on CPU')
 
                 res = self._launch(task, gpu_ids, index)
                 pbar.update()
@@ -192,6 +243,16 @@ class LocalRunner(BaseRunner):
             with ThreadPoolExecutor(
                     max_workers=self.max_num_workers) as executor:
                 status = executor.map(submit, tasks, range(len(tasks)))
+
+        # Clean up ETA metadata file after all tasks complete
+        if len(tasks) > 0:
+            try:
+                task_obj = TASKS.build(dict(cfg=tasks[0], type=self.task_cfg['type']))
+                eta_metadata_file = osp.join(task_obj.work_dir, 'tmp', 'eta_metadata.json')
+                if osp.exists(eta_metadata_file):
+                    os.remove(eta_metadata_file)
+            except Exception:
+                pass  # Silently ignore cleanup errors
 
         return status
 

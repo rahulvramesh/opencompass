@@ -133,9 +133,22 @@ class GenInferencer(BaseInferencer):
         # 5. Inference for prompts in each batch
         logger.info('Starting inference process...')
 
+        # Calibration phase for accurate ETA
+        num_remaining_samples = len(prompt_list) - index
+        num_batches = len(dataloader)
+        calibration_batches = 1  # Show ETA after just 1 batch!
+
+        if num_batches > 0 and calibration_batches > 0:
+            logger.info(f'Running calibration on first batch to measure speed...')
+
         start_time_stamp = time.time()
         num_sample = 0
+        batch_num = 0
+        calibration_done = False
+
         for datum in tqdm(dataloader, disable=not self.is_main_process):
+            batch_start = time.time()
+            batch_num += 1
             if ds_reader.output_column:
                 entry, golds = list(zip(*datum))
             else:
@@ -175,7 +188,100 @@ class GenInferencer(BaseInferencer):
                                              'tmp_' + output_json_filename)
             num_sample += len(datum)
 
+            # After first batch, show total ETA immediately
+            if not calibration_done and batch_num >= calibration_batches:
+                calibration_done = True
+                batch_time = time.time() - batch_start  # Time for this batch
+                remaining_batches = num_batches - batch_num
+                estimated_remaining_seconds = remaining_batches * batch_time
+                total_estimated_seconds = (time.time() - start_time_stamp) + estimated_remaining_seconds
+
+                # Format total estimated time
+                if total_estimated_seconds < 60:
+                    total_time_str = f"{int(total_estimated_seconds)} seconds"
+                else:
+                    total_minutes = int(total_estimated_seconds / 60)
+                    total_seconds = int(total_estimated_seconds % 60)
+                    total_time_str = f"{total_minutes}m {total_seconds}s"
+
+                logger.info(f'Speed measured: {batch_time:.1f}s per batch (based on first batch).')
+                logger.info(f'📊 ESTIMATED TIME FOR THIS TASK: {total_time_str} ({num_batches} batches, {num_remaining_samples} samples)')
+
+                # Check if this is the first task and calculate TOTAL evaluation ETA
+                try:
+                    # Try to find the eta_metadata file in work_dir/tmp/
+                    # output_json_filepath is like: work_dir/predictions/model/dataset
+                    # Split by 'predictions' to get work_dir
+                    if 'predictions' in output_json_filepath:
+                        work_dir_path = output_json_filepath.split('predictions')[0].rstrip('/')
+                    else:
+                        work_dir_path = os.path.dirname(os.path.dirname(output_json_filepath))
+                    eta_metadata_file = os.path.join(work_dir_path, 'tmp', 'eta_metadata.json')
+
+                    if os.path.exists(eta_metadata_file):
+                        with open(eta_metadata_file, 'r') as f:
+                            metadata = json.load(f)
+
+                        if not metadata.get('calibration_complete', False):
+                            # This is the first task to calibrate!
+                            total_batches = metadata['total_batches']
+                            total_tasks = metadata['total_tasks']
+
+                            # Calculate TOTAL evaluation time using measured speed
+                            total_eval_time = total_batches * batch_time
+
+                            # Format total evaluation time
+                            if total_eval_time < 60:
+                                total_eval_time_str = f"{int(total_eval_time)}s"
+                            elif total_eval_time < 3600:
+                                total_eval_minutes = int(total_eval_time / 60)
+                                total_eval_seconds = int(total_eval_time % 60)
+                                total_eval_time_str = f"{total_eval_minutes}m {total_eval_seconds}s"
+                            else:
+                                total_eval_hours = int(total_eval_time / 3600)
+                                remaining_minutes = int((total_eval_time % 3600) / 60)
+                                total_eval_time_str = f"{total_eval_hours}h {remaining_minutes}m"
+
+                            logger.info(f'')
+                            logger.info(f'📊 TOTAL EVALUATION ETA: {total_eval_time_str} '
+                                       f'({total_batches} batches across {total_tasks} tasks)')
+
+                            # Add machine-parseable JSON log for programmatic extraction
+                            eta_data = {
+                                "total_eta_seconds": int(total_eval_time),
+                                "total_batches": total_batches,
+                                "total_tasks": total_tasks,
+                                "speed_per_batch": round(batch_time, 2)
+                            }
+                            logger.info(f'ETA_DATA: {json.dumps(eta_data)}')
+                            logger.info(f'')
+
+                            # Mark calibration as complete
+                            metadata['calibration_complete'] = True
+                            metadata['speed_per_batch'] = batch_time
+                            with open(eta_metadata_file, 'w') as f:
+                                json.dump(metadata, f)
+                except Exception:
+                    # Silently ignore if metadata file doesn't exist or can't be read
+                    pass
+
         end_time_stamp = time.time()
+
+        # Log completion summary
+        total_time = end_time_stamp - start_time_stamp
+        if total_time < 60:
+            time_str = f"{total_time:.1f}s"
+        else:
+            minutes = int(total_time / 60)
+            seconds = int(total_time % 60)
+            time_str = f"{minutes}m {seconds}s"
+
+        if num_sample > 0:
+            avg_time = total_time / num_sample
+            logger.info(f'Inference complete! Processed {num_sample} samples in '
+                       f'{time_str} (avg {avg_time:.2f}s/sample)')
+        else:
+            logger.info(f'Inference complete! Total time: {time_str}')
 
         # 6. Output
         if self.is_main_process:
