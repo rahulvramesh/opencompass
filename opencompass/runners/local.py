@@ -114,7 +114,8 @@ class LocalRunner(BaseRunner):
                     json.dump({
                         'total_batches': total_batches,
                         'total_tasks': len(tasks),
-                        'calibration_complete': False
+                        'calibration_complete': False,
+                        'global_batches_completed': 0
                     }, f)
 
                 logger.info(f'📋 Starting evaluation with {len(tasks)} task(s), '

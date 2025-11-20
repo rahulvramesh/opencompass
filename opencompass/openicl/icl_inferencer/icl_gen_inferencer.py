@@ -265,6 +265,62 @@ class GenInferencer(BaseInferencer):
                     # Silently ignore if metadata file doesn't exist or can't be read
                     pass
 
+            # Update global batch counter and show progress every 5 batches
+            if calibration_done:
+                try:
+                    # Get eta_metadata file path
+                    if 'predictions' in output_json_filepath:
+                        work_dir_path = output_json_filepath.split('predictions')[0].rstrip('/')
+                    else:
+                        work_dir_path = os.path.dirname(os.path.dirname(output_json_filepath))
+                    eta_metadata_file = os.path.join(work_dir_path, 'tmp', 'eta_metadata.json')
+
+                    if os.path.exists(eta_metadata_file):
+                        # Read and update global progress
+                        with open(eta_metadata_file, 'r') as f:
+                            metadata = json.load(f)
+
+                        # Increment global batch counter
+                        global_batches_completed = metadata.get('global_batches_completed', 0) + 1
+                        total_batches = metadata['total_batches']
+
+                        # Calculate average speed from all batches completed so far in current task
+                        elapsed_time = time.time() - start_time_stamp
+                        avg_batch_time = elapsed_time / batch_num
+
+                        # Calculate GLOBAL remaining time
+                        remaining_batches = total_batches - global_batches_completed
+                        remaining_seconds = remaining_batches * avg_batch_time
+
+                        # Update metadata with new global counter
+                        metadata['global_batches_completed'] = global_batches_completed
+                        with open(eta_metadata_file, 'w') as f:
+                            json.dump(metadata, f)
+
+                        # Show progress every 5 GLOBAL batches
+                        if global_batches_completed % 5 == 0:
+                            # Format human-readable time
+                            if remaining_seconds < 60:
+                                remaining_str = f"{int(remaining_seconds)}s"
+                            else:
+                                remaining_minutes = int(remaining_seconds / 60)
+                                remaining_secs = int(remaining_seconds % 60)
+                                remaining_str = f"{remaining_minutes}m {remaining_secs}s"
+
+                            # Log human-readable format with global progress
+                            logger.info(f'⏱️  Remaining: {remaining_str} (Global: {global_batches_completed}/{total_batches} batches)')
+
+                            # Log JSON format for parsing
+                            progress_data = {
+                                "remaining_seconds": int(remaining_seconds),
+                                "batches_completed": global_batches_completed,
+                                "batches_total": total_batches
+                            }
+                            logger.info(f'PROGRESS_DATA: {json.dumps(progress_data)}')
+                except Exception:
+                    # Silently ignore if metadata file doesn't exist or can't be read
+                    pass
+
         end_time_stamp = time.time()
 
         # Log completion summary
