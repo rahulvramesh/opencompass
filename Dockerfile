@@ -55,6 +55,9 @@ RUN pip install --no-cache-dir torch>=1.13.1 --index-url https://download.pytorc
 # Install base runtime requirements
 RUN pip install --no-cache-dir -r requirements/runtime.txt
 
+# Update git config to foce use HTTPS urls over SSH
+RUN git config --global url."https://github.com/".insteadOf git@github.com:
+
 # Install API requirements (optional)
 RUN pip install --no-cache-dir -r requirements/api.txt || true
 
