@@ -149,7 +149,7 @@ class ListWrapper:
     def __init__(self, data: List[Any]):
         self.data = data
 
-    def to(self, device):
+    def to(self, device, **kwargs):
         return self.data
 
 
